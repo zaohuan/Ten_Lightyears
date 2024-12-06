@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>地图</title>
+    <style>
+        html, body, #container {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <script type="text/javascript">
+        window._AMapSecurityConfig = {
+            securityJsCode: "5ee8a6eb6e5eb6313947acf3e6ae18eb"
+        };
+    </script>
+    <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=fc3c6e846fefdab859fd1ebf42729dac&plugin=AMap.Driving"></script>
+    <script>
+        // 接收来自uni-app的消息
+        window.addEventListener('message', function(event) {
+            const {scheduleData, currentDay} = event.data;
+            initMap(scheduleData, currentDay);
+        });
+
+        function initMap(scheduleData, currentDay) {
+            const map = new AMap.Map('container', {
+                zoom: 10,
+                center: [119.2978, 26.0829]
+            });
+
+            const daySchedule = scheduleData[currentDay - 1];
+            if (!daySchedule || daySchedule.length < 2) {
+                console.log('无效的行程数据');
+                return;
+            }
+
+            const origin = new AMap.LngLat(daySchedule[0].longitude, daySchedule[0].latitude);
+            const destination = new AMap.LngLat(daySchedule[daySchedule.length - 1].longitude, daySchedule[daySchedule.length - 1].latitude);
+            const waypoints = daySchedule.slice(1, -1).map(item => new AMap.LngLat(item.longitude, item.latitude));
+
+            const driving = new AMap.Driving({
+                map: map,
+                policy: 0
+            });
+
+            driving.search(origin, destination, {waypoints}, function(status, result) {
+                if (status === 'complete') {
+                    console.log('路线规划成功');
+                } else {
+                    console.error('路线规划失败');
+                }
+            });
+        }
+    </script>
+</body>
+</html> 
