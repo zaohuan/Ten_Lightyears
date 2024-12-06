@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+    <title>地图</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 100%;
+            height: 50vh;
+            overflow: hidden;
+        }
+        #container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <script type="text/javascript">
+        window._AMapSecurityConfig = {
+            securityJsCode: "5ee8a6eb6e5eb6313947acf3e6ae18eb"
+        };
+    </script>
+    <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=fc3c6e846fefdab859fd1ebf42729dac&plugin=AMap.Driving"></script>
+    <script>
+        let map = null;
+        let driving = null;
+        let currentMarkers = []; // 存储当前的标记点
+        
+        function initMap(scheduleData, currentDay) {
+            try {
+                if (!map) {
+                    map = new AMap.Map('container', {
+                        zoom: 10,
+                        center: [119.2978, 26.0829]
+                    });
+                }
+
+                // 获取当前天的行程数据
+                const daySchedule = scheduleData[currentDay - 1];
+                if (!daySchedule || daySchedule.length < 2) {
+                    console.log('updateMapRoute failed');
+                    return;
+                }
+
+                // 清除之前的所有标记和路线
+                map.clearMap();
+                currentMarkers.forEach(marker => marker.setMap(null));
+                currentMarkers = [];
+
+                console.log('updateMapRoute begin');
+                const origin = new AMap.LngLat(daySchedule[0].longitude, daySchedule[0].latitude);
+                const destination = new AMap.LngLat(daySchedule[daySchedule.length - 1].longitude, daySchedule[daySchedule.length - 1].latitude);
+                const waypoints = daySchedule.slice(1, -1).map(item => new AMap.LngLat(item.longitude, item.latitude));
+
+                // 添加起点标记
+                const startMarker = new AMap.Marker({
+                    position: origin,
+                    map: map,
+                    icon: 'https://webapi.amap.com/theme/v1.3/markers/n/start.png',
+                    label: {
+                        content: daySchedule[0].spot,
+                        direction: 'right'
+                    }
+                });
+                currentMarkers.push(startMarker);
+
+                // 添加终点标记
+                const endMarker = new AMap.Marker({
+                    position: destination,
+                    map: map,
+                    icon: 'https://webapi.amap.com/theme/v1.3/markers/n/end.png',
+                    label: {
+                        content: daySchedule[daySchedule.length - 1].spot,
+                        direction: 'right'
+                    }
+                });
+                currentMarkers.push(endMarker);
+
+                // 添加途经点标记
+                waypoints.forEach((point, index) => {
+                    const marker = new AMap.Marker({
+                        position: point,
+                        map: map,
+                        label: {
+                            content: daySchedule[index + 1].spot,
+                            direction: 'right'
+                        }
+                    });
+                    currentMarkers.push(marker);
+                });
+
+                // 创建驾车路线规划
+                if (driving) {
+                    driving.clear();
+                }
+                
+                driving = new AMap.Driving({
+                    map: map,
+                    policy: 0,
+                    hideMarkers: true
+                });
+
+                // 搜索路线
+                driving.search(
+                    origin, destination, { waypoints },
+                    function(status, result) {
+                        if (status === 'complete') {
+                            console.log('获取路线成功');
+                            const path = result.routes[0].steps.flatMap(step => step.path);
+                            const polyline = new AMap.Polyline({
+                                path,
+                                strokeColor: "#3366FF",
+                                strokeWeight: 5,
+                            });
+                            map.add(polyline);
+                            map.setFitView();
+                        } else {
+                            console.error('获取驾车数据失败：' + result);
+                        }
+                    }
+                );
+
+            } catch (error) {
+                console.error('地图初始化错误:', error);
+            }
+        }
+
+        // 页面加载完成后初始化地图
+        window.onload = function() {
+            try {
+                map = new AMap.Map('container', {
+                    zoom: 10,
+                    center: [119.2978, 26.0829],
+                    resizeEnable: true
+                });
+                
+                window.addEventListener('resize', function() {
+                    map && map.resize();
+                });
+            } catch (error) {
+                console.error('地图加载错误:', error);
+            }
+        }
+
+        // 添加消息监听
+        window.addEventListener('message', function(event) {
+            const eventData = event.data.data || event.data;
+            const {scheduleData, currentDay} = eventData;
+            
+            console.log('地图收到数据:', eventData);
+            
+            if (scheduleData && currentDay) {
+                initMap(scheduleData, currentDay);
+            }
+        });
+    </script>
+</body>
+</html> 
